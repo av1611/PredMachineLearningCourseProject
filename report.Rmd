@@ -25,10 +25,7 @@ set.seed(6348)
 
 ## Preprocessing  Data
 
-As with any machine learning project, we should first take a look at the data. 
-A significant amount of columns are blank or not available. To simplify our 
-model, we remove any column possessing either of these two traits. Afterwards, 
-we should notice that the first eight columns are measurements not pertaining 
+At first look on the data, it is obvious that a significant amount of columns are blank or not available. To simplify our model, we remove any column possessing either of these two traits. Afterwards, we should notice that the first eight columns are measurements not pertaining 
 to the sensor. We manually remove them before running PCA on the remaining data 
 columns.
 
@@ -84,7 +81,7 @@ cv_classe = raw_train_data[-in_train, length(raw_train_data)]
 ## Data Modeling
 
 Once all of the data has been preprocessed, we can begin to model the data to 
-the classe. In the Netflix contest, the top performers used an ensemble of 
+the class. In the Netflix contest, the top performers used an ensemble of 
 models in their predictions. To model this data, I decided to adopt the same 
 idea and use multiple models to determine whether or not someone is performing 
 the exercise correctly. 
