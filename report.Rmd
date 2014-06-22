@@ -4,9 +4,9 @@ Practical Machine Learning Project of Coursera
 # Introduction
 
 This is the course project of Practical Machine Learning at Coursera.
-The purpose of this project is to predict the manner in which they did the exercise. 
+The purpose of this project is to predict the manner the exercises have been done. 
 
-While performing the exercise, it is important to have the correct form and movement 
+While performing the exercises, it is important to have the correct form and movement 
 to avoid injury and maximize efficiency. Given the proper equipment, we can
 diagnose cases of doing exercises correctly using existing, machine
 learning libraries in R. We take a look how this is possible by using the Human 
