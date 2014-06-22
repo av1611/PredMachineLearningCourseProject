@@ -5,7 +5,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 <meta http-equiv="x-ua-compatible" content="IE=9" >
 
-<title>Practical Machine Learning Project</title>
+<title>Practical Machine Learning Project of Coursera</title>
 
 <style type="text/css">
 body, td {
@@ -179,26 +179,61 @@ hljs.initHighlightingOnLoad();
 </head>
 
 <body>
-<h1>Practical Machine Learning Project</h1>
+<h1>Practical Machine Learning Project of Coursera</h1>
 
 <h1>Introduction</h1>
 
-<p>This is the course project of Practical Machine Learning from coursera.
-The goal of this project is to predict the manner in which they did the exercise. </p>
+<p>This is the course project of Practical Machine Learning at Coursera.
+The purpose of this project is to predict the manner in which they did the exercise. </p>
+
+<p>While performing the exercise, it is important to have the correct form and movement 
+to avoid injury and maximize efficiency. Given the proper equipment, we can
+diagnose cases of doing exercises correctly using existing, machine
+learning libraries in R. We take a look how this is possible by using the Human 
+Activity Recognition dataset.</p>
+
+<h2>Prerequisite Conditions</h2>
+
+<p>Loading libraries: </p>
+
+<pre><code class="r">library(caret)
+</code></pre>
 
 <pre><code>## Loading required package: lattice
 ## Loading required package: ggplot2
 </code></pre>
 
-<pre><code>## Error: there is no package called &#39;kernlab&#39;
+<pre><code class="r">library(doMC)
 </code></pre>
 
-<pre><code>## Error: there is no package called &#39;randomForest&#39;
+<pre><code>## Error: there is no package called &#39;doMC&#39;
 </code></pre>
 
-<h1>Loading data</h1>
+<pre><code class="r">registerDoMC(cores = 8)
+</code></pre>
 
-<pre><code class="r">raw_training &lt;- read.csv(&#39;pml-training.csv&#39;)
+<pre><code>## Error: could not find function &quot;registerDoMC&quot;
+</code></pre>
+
+<pre><code class="r">set.seed(6348)
+</code></pre>
+
+<h2>Preprocessing  Data</h2>
+
+<p>At first look on the data, it is obvious that a significant amount of columns are not availabl. To simplify our model, we remove any column possessing either of these two traits. Afterwards, we should notice that the first eight columns are measurements not pertaining to the sensor.
+We manually remove them before running PCA on the remaining data columns.</p>
+
+<p>In order to get an idea of how well our algorithm will perform on the testing data, we create 
+a split to make a &ldquo;cross-validated&rdquo; data partition. This is an 80/20 split in order to give sufficient data to developing the models while giving a good estimate to testing performance. Later on, we&#39;ll let caret train using a 4-fold cross-validation setup.</p>
+
+<p>In order to capture most of the variance of the data and to remove repeated operations,
+we pre-process the data with PCA outside of caret&#39;s train function. We also center and scale the data in order to treat each column equally. The threshold for the PCA was left at the defaul 0.95 in order to capture most of the variance. Finally, we use the predict function to apply our PCA to the data.</p>
+
+<p>The preprocessing is performed to both the training and testing data like so:</p>
+
+<pre><code class="r"># Read in the data
+raw_train_data = read.csv(&quot;pml-training.csv&quot;, header = TRUE, 
+                          na.strings=c(&quot;&quot;, &quot;NA&quot;))
 </code></pre>
 
 <pre><code>## Warning: cannot open file &#39;pml-training.csv&#39;: No such file or directory
@@ -207,7 +242,8 @@ The goal of this project is to predict the manner in which they did the exercise
 <pre><code>## Error: cannot open the connection
 </code></pre>
 
-<pre><code class="r">raw_testing &lt;- read.csv(&#39;pml-testing.csv&#39;)
+<pre><code class="r">raw_test_data = read.csv(&quot;pml-testing.csv&quot;, header = TRUE, 
+                          na.strings=c(&quot;&quot;, &quot;NA&quot;))
 </code></pre>
 
 <pre><code>## Warning: cannot open file &#39;pml-testing.csv&#39;: No such file or directory
@@ -216,207 +252,336 @@ The goal of this project is to predict the manner in which they did the exercise
 <pre><code>## Error: cannot open the connection
 </code></pre>
 
-<pre><code class="r">set.seed(8888)
-inTrain &lt;- createDataPartition(raw_training$classe, list=FALSE, p=.9)
+<pre><code class="r"># Remove the NA/empty columns
+raw_train_data = raw_train_data[, colSums(is.na(raw_train_data)) == 0]
 </code></pre>
 
-<pre><code>## Error: object &#39;raw_training&#39; not found
+<pre><code>## Error: object &#39;raw_train_data&#39; not found
 </code></pre>
 
-<pre><code class="r">training = raw_training[inTrain,]
+<pre><code class="r">raw_test_data = raw_test_data[, colSums(is.na(raw_test_data)) == 0]
 </code></pre>
 
-<pre><code>## Error: object &#39;raw_training&#39; not found
+<pre><code>## Error: object &#39;raw_test_data&#39; not found
 </code></pre>
 
-<pre><code class="r">testing = raw_training[-inTrain,]
+<pre><code class="r"># Remove non-sensor measurements
+raw_train_data = raw_train_data[, 8:length(raw_train_data)]
 </code></pre>
 
-<pre><code>## Error: object &#39;raw_training&#39; not found
+<pre><code>## Error: object &#39;raw_train_data&#39; not found
 </code></pre>
 
-<h1>Preprocessing</h1>
-
-<pre><code class="r">nzv &lt;- nearZeroVar(training)
+<pre><code class="r">raw_test_data = raw_test_data[, 8:length(raw_test_data)]
 </code></pre>
 
-<pre><code>## Error: object &#39;training&#39; not found
+<pre><code>## Error: object &#39;raw_test_data&#39; not found
 </code></pre>
 
-<pre><code class="r">training &lt;- training[-nzv]
+<pre><code class="r"># Divide the training data into 80/20 training/CV and remove classe for PCA
+train_data = raw_train_data[, 1:length(raw_train_data) - 1]
 </code></pre>
 
-<pre><code>## Error: object &#39;training&#39; not found
+<pre><code>## Error: object &#39;raw_train_data&#39; not found
 </code></pre>
 
-<pre><code class="r">testing &lt;- testing[-nzv]
+<pre><code class="r">test_data = raw_test_data[,1:length(raw_test_data) - 1]
 </code></pre>
 
-<pre><code>## Error: object &#39;testing&#39; not found
+<pre><code>## Error: object &#39;raw_test_data&#39; not found
 </code></pre>
 
-<pre><code class="r">raw_testing &lt;- raw_testing[-nzv]
+<pre><code class="r"># Define the PCA operation
+pre_proc = preProcess(rbind(train_data, test_data), 
+                      method = c(&quot;center&quot;, &quot;scale&quot;, &quot;pca&quot;))
 </code></pre>
 
-<pre><code>## Error: object &#39;raw_testing&#39; not found
+<pre><code>## Error: object &#39;train_data&#39; not found
 </code></pre>
 
-<pre><code class="r">training &lt;- training[-5]
+<pre><code class="r"># Apply the PCA to the data
+in_train = createDataPartition(y = raw_train_data$classe, p = 0.8, list = FALSE)
 </code></pre>
 
-<pre><code>## Error: object &#39;training&#39; not found
+<pre><code>## Error: object &#39;raw_train_data&#39; not found
 </code></pre>
 
-<pre><code class="r">testing &lt;- testing[-5]
+<pre><code class="r">pca_data = predict(pre_proc, train_data)
 </code></pre>
 
-<pre><code>## Error: object &#39;testing&#39; not found
+<pre><code>## Error: object &#39;pre_proc&#39; not found
 </code></pre>
 
-<pre><code class="r">raw_testing &lt;- raw_testing[-5]
+<pre><code class="r">pca_train_data = pca_data[in_train,]
 </code></pre>
 
-<pre><code>## Error: object &#39;raw_testing&#39; not found
+<pre><code>## Error: object &#39;pca_data&#39; not found
 </code></pre>
 
-<pre><code class="r">num_features_idx = which(lapply(training,class) %in% c(&#39;numeric&#39;)  )
+<pre><code class="r">pca_cv_data = pca_data[-in_train,]
 </code></pre>
 
-<pre><code>## Error: object &#39;training&#39; not found
+<pre><code>## Error: object &#39;pca_data&#39; not found
 </code></pre>
 
-<pre><code class="r">preModel &lt;- preProcess(training[,num_features_idx], method=c(&#39;knnImpute&#39;))
+<pre><code class="r">pca_test_data = predict(pre_proc, test_data)
 </code></pre>
 
-<pre><code>## Error: object &#39;training&#39; not found
+<pre><code>## Error: object &#39;pre_proc&#39; not found
 </code></pre>
 
-<p>In some situations, the data generating mechanism can create predictors that only have a single unique value (i.e. a &ldquo;zero-variance predictor&rdquo;). For many models (excluding tree-based models), this may cause the model to crash or the fit to be unstable.
-PreProcess can be used to impute data sets based only on information in the training set. One method of doing this is with K-nearest neighbors.</p>
-
-<h1>Get preprocessed data</h1>
-
-<pre><code class="r">ptraining &lt;- cbind(training$classe, predict(preModel, training[,num_features_idx]))
+<pre><code class="r"># Create classe variables for easier access
+train_classe = raw_train_data[in_train, length(raw_train_data)]
 </code></pre>
 
-<pre><code>## Error: object &#39;training&#39; not found
+<pre><code>## Error: object &#39;raw_train_data&#39; not found
 </code></pre>
 
-<pre><code class="r">ptesting &lt;- cbind(testing$classe, predict(preModel, testing[,num_features_idx]))
+<pre><code class="r">cv_classe = raw_train_data[-in_train, length(raw_train_data)]
 </code></pre>
 
-<pre><code>## Error: object &#39;testing&#39; not found
+<pre><code>## Error: object &#39;raw_train_data&#39; not found
 </code></pre>
 
-<pre><code class="r">prtesting &lt;- predict(preModel, raw_testing[,num_features_idx])
+<h2>Data Modeling</h2>
+
+<p>Once all of the data has been preprocessed, we can begin to model the data to the class. In the Netflix contest, the top performers used an ensemble of models in their predictions. To model this data, I decided to adopt the same idea and use multiple models to determine whether or not someone is performing the exercise correctly. </p>
+
+<p>I decided to use the following four models: recursive partitioning and regression trees (<strong>rpart</strong>), random forests (<strong>rf</strong>), linear discriminant analysis (<strong>lda</strong>), and radial support vector machines (<strong>svmRadial</strong>). All of them were picked arbitrarily. Other models such as the generalized boosted regression models (<strong>gbm</strong>) were not selected on the basis of time and processing constraints. </p>
+
+<p>To ensure that we do not overfit on the training data, we perform cross-validation while training our models. Since we already separated 20% of our training data to get a performance estimate, I decided to perform a 4-fold cross-validation so that the training data and cross-validated partition within the train function is 60% and 20%, respectively, for each of the repeats. </p>
+
+<p>The model training is performed like so:</p>
+
+<pre><code class="r"># Define k-fold cross-validation training conditions
+fit_control = trainControl(method = &quot;repeatedcv&quot;, number = 4, repeats = 4)
+
+# Train multiple models under default parameters
+rpart_model = train(pca_train_data, train_classe, 
+                    method = &quot;rpart&quot;, trControl = fit_control)
 </code></pre>
 
-<pre><code>## Error: object &#39;preModel&#39; not found
+<pre><code>## Error: object &#39;pca_train_data&#39; not found
 </code></pre>
 
-<pre><code class="r">names(ptraining)[1] &lt;- &#39;classe&#39;
+<pre><code class="r">rf_model = train(pca_train_data, train_classe,
+                 method = &quot;rf&quot;, trControl = fit_control)
 </code></pre>
 
-<pre><code>## Error: object &#39;ptraining&#39; not found
+<pre><code>## Error: object &#39;pca_train_data&#39; not found
 </code></pre>
 
-<pre><code class="r">names(ptesting)[1] &lt;- &#39;classe&#39;
+<pre><code class="r">lda_model = train(pca_train_data, train_classe, 
+                  method = &quot;lda&quot;, trControl = fit_control)
 </code></pre>
 
-<pre><code>## Error: object &#39;ptesting&#39; not found
+<pre><code>## Error: object &#39;pca_train_data&#39; not found
 </code></pre>
 
-<pre><code class="r">ptraining[is.na(ptraining)] &lt;- 0
+<pre><code class="r">svm_model = train(pca_train_data, train_classe, 
+                  method = &quot;svmRadial&quot;, trControl = fit_control)
 </code></pre>
 
-<pre><code>## Error: object &#39;ptraining&#39; not found
+<pre><code>## Error: object &#39;pca_train_data&#39; not found
 </code></pre>
 
-<pre><code class="r">ptesting[is.na(ptesting)] &lt;- 0
+<p>After training the models, we could take a look at the in-sample error for each of the individual models. However, we can instead just combine all of them to form an ensemble. To do this, we predict on the training set for each of the models and create a new data frame containing the predictions and the classe. We then fit a random forest over the predictions to the classe, thus forming an ensemble prediction as performed here:</p>
+
+<pre><code class="r"># Predict with each of the trained models
+rpart_train_pred = predict(rpart_model, pca_train_data)
 </code></pre>
 
-<pre><code>## Error: object &#39;ptesting&#39; not found
+<pre><code>## Error: object &#39;rpart_model&#39; not found
 </code></pre>
 
-<pre><code class="r">prtesting[is.na(prtesting)] &lt;- 0
-</code></pre>
-
-<pre><code>## Error: object &#39;prtesting&#39; not found
-</code></pre>
-
-<h1>Fit model and corss validation</h1>
-
-<pre><code class="r">rf_model  &lt;- randomForest(classe ~ ., ptraining)
-</code></pre>
-
-<pre><code>## Error: could not find function &quot;randomForest&quot;
-</code></pre>
-
-<h2>In-sample accuracy</h2>
-
-<pre><code class="r">training_pred &lt;- predict(rf_model, ptraining) 
-</code></pre>
-
-<pre><code>## Error: object &#39;rf_model&#39; not found
-</code></pre>
-
-<pre><code class="r">print(table(training_pred, ptraining$classe))
-</code></pre>
-
-<pre><code>## Error: object &#39;training_pred&#39; not found
-</code></pre>
-
-<pre><code class="r">print(mean(training_pred == ptraining$classe))
-</code></pre>
-
-<pre><code>## Error: object &#39;training_pred&#39; not found
-</code></pre>
-
-<h2>Out-of-sample accuracy</h2>
-
-<pre><code class="r">testing_pred &lt;- predict(rf_model, ptesting) 
+<pre><code class="r">rf_train_pred = predict(rf_model, pca_train_data)
 </code></pre>
 
 <pre><code>## Error: object &#39;rf_model&#39; not found
 </code></pre>
 
-<pre><code class="r">print(table(testing_pred, ptesting$classe))
+<pre><code class="r">lda_train_pred = predict(lda_model, pca_train_data)
 </code></pre>
 
-<pre><code>## Error: object &#39;testing_pred&#39; not found
+<pre><code>## Error: object &#39;lda_model&#39; not found
 </code></pre>
 
-<pre><code class="r">print(mean(testing_pred == ptesting$classe))
+<pre><code class="r">svm_train_pred = predict(svm_model, pca_train_data)
 </code></pre>
 
-<pre><code>## Error: object &#39;testing_pred&#39; not found
+<pre><code>## Error: object &#39;svm_model&#39; not found
 </code></pre>
 
-<h3>Confusion Matrix:</h3>
-
-<pre><code class="r">print(confusionMatrix(testing_pred, ptesting$classe))
+<pre><code class="r"># Fit a model combining the predictions
+train_df = data.frame(rpart_pred = rpart_train_pred, rf_pred = rf_train_pred, 
+                      lda_pred = lda_train_pred, svm_pred = svm_train_pred, 
+                      classe = train_classe)
 </code></pre>
 
-<pre><code>## Error: object &#39;testing_pred&#39; not found
+<pre><code>## Error: object &#39;rpart_train_pred&#39; not found
 </code></pre>
 
-<h1>Apply model to the test set</h1>
+<pre><code class="r">ensemble_model = train(classe ~ ., method = &quot;rf&quot;, data = train_df)
+</code></pre>
 
-<pre><code class="r">answers &lt;- predict(rf_model, prtesting) 
+<pre><code>## Error: object &#39;train_df&#39; not found
+</code></pre>
+
+<pre><code class="r">print(ensemble_model)
+</code></pre>
+
+<pre><code>## Error: object &#39;ensemble_model&#39; not found
+</code></pre>
+
+<p>We can get the in-sample error for our ensemble by subtracting with our highest accuracy attained with our model. The in-sample error is:</p>
+
+<pre><code class="r">error = 1 - max(ensemble_model$results$Accuracy)
+</code></pre>
+
+<pre><code>## Error: object &#39;ensemble_model&#39; not found
+</code></pre>
+
+<pre><code class="r">names(error) = &quot;Error&quot;
+</code></pre>
+
+<pre><code>## Error: object &#39;error&#39; not found
+</code></pre>
+
+<pre><code class="r">print(error)
+</code></pre>
+
+<pre><code>## Error: object &#39;error&#39; not found
+</code></pre>
+
+<h2>Prediction with Trained Models</h2>
+
+<p>To get the out-of-sample error, we use the ensemble model on the cross-validation data partition that was not included in the training. We run the data through each of the individual models before using the ensemble model.</p>
+
+<pre><code class="r"># Generate predictions on the data
+rpart_cv_pred = predict(rpart_model, pca_cv_data)
+</code></pre>
+
+<pre><code>## Error: object &#39;rpart_model&#39; not found
+</code></pre>
+
+<pre><code class="r">rf_cv_pred = predict(rf_model, pca_cv_data)
 </code></pre>
 
 <pre><code>## Error: object &#39;rf_model&#39; not found
 </code></pre>
 
-<pre><code class="r">answers
+<pre><code class="r">lda_cv_pred = predict(lda_model, pca_cv_data)
 </code></pre>
 
-<pre><code>## Error: object &#39;answers&#39; not found
+<pre><code>## Error: object &#39;lda_model&#39; not found
 </code></pre>
 
-<h1>Conclusion</h1>
+<pre><code class="r">svm_cv_pred = predict(svm_model, pca_cv_data)
+</code></pre>
 
-<p>We are able to provide very good prediction of weight lifting style as measured with accelerometers.</p>
+<pre><code>## Error: object &#39;svm_model&#39; not found
+</code></pre>
+
+<pre><code class="r"># Fit a model combining the predictions
+cv_df = data.frame(rpart_pred = rpart_cv_pred, rf_pred = rf_cv_pred, 
+                   lda_pred = lda_cv_pred, svm_pred = svm_cv_pred, 
+                   classe = cv_classe)
+</code></pre>
+
+<pre><code>## Error: object &#39;rpart_cv_pred&#39; not found
+</code></pre>
+
+<pre><code class="r">cv_pred = predict(ensemble_model, cv_df)
+</code></pre>
+
+<pre><code>## Error: object &#39;ensemble_model&#39; not found
+</code></pre>
+
+<p>By using a confusion matrix, we can get the accuracy of ensemble model on the cross-validation data partition. The expected out-of-sample error is:</p>
+
+<pre><code class="r">cv_confusion_matrix = confusionMatrix(cv_pred, cv_classe)
+</code></pre>
+
+<pre><code>## Error: object &#39;cv_pred&#39; not found
+</code></pre>
+
+<pre><code class="r">error = 1 - cv_confusion_matrix$overall[&quot;Accuracy&quot;]
+</code></pre>
+
+<pre><code>## Error: object &#39;cv_confusion_matrix&#39; not found
+</code></pre>
+
+<pre><code class="r">names(error) = &quot;Error&quot;
+</code></pre>
+
+<pre><code>## Error: object &#39;error&#39; not found
+</code></pre>
+
+<pre><code class="r">print(error)
+</code></pre>
+
+<pre><code>## Error: object &#39;error&#39; not found
+</code></pre>
+
+<h2>Predicting on the Test Set</h2>
+
+<p>Similar to the cross-validation data partition, we can predict on the test data. Since the test data does not have the class, this section is just outputting the results submitted to Coursera.</p>
+
+<pre><code class="r"># Generate predictions on the data
+rpart_test_pred = predict(rpart_model, pca_test_data)
+</code></pre>
+
+<pre><code>## Error: object &#39;rpart_model&#39; not found
+</code></pre>
+
+<pre><code class="r">rf_test_pred = predict(rf_model, pca_test_data)
+</code></pre>
+
+<pre><code>## Error: object &#39;rf_model&#39; not found
+</code></pre>
+
+<pre><code class="r">lda_test_pred = predict(lda_model, pca_test_data)
+</code></pre>
+
+<pre><code>## Error: object &#39;lda_model&#39; not found
+</code></pre>
+
+<pre><code class="r">svm_test_pred = predict(svm_model, pca_test_data)
+</code></pre>
+
+<pre><code>## Error: object &#39;svm_model&#39; not found
+</code></pre>
+
+<pre><code class="r"># Fit a model combining the predictions
+test_df = data.frame(rpart_pred = rpart_test_pred, rf_pred = rf_test_pred, 
+                     lda_pred = lda_test_pred, svm_pred = svm_test_pred)
+</code></pre>
+
+<pre><code>## Error: object &#39;rpart_test_pred&#39; not found
+</code></pre>
+
+<pre><code class="r">test_pred = predict(ensemble_model, test_df)
+</code></pre>
+
+<pre><code>## Error: object &#39;ensemble_model&#39; not found
+</code></pre>
+
+<pre><code class="r"># Write out predictions to file. Code taken from project submission page.
+n = length(test_pred)
+</code></pre>
+
+<pre><code>## Error: object &#39;test_pred&#39; not found
+</code></pre>
+
+<pre><code class="r">for(i in 1:n){
+  filename = paste0(&quot;problem_id_&quot;, i, &quot;.txt&quot;)
+  write.table(test_pred[i], file = filename, quote = FALSE, 
+              row.names = FALSE, col.names = FALSE)
+}
+</code></pre>
+
+<pre><code>## Error: object &#39;n&#39; not found
+</code></pre>
 
 </body>
 

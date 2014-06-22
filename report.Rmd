@@ -25,21 +25,14 @@ set.seed(6348)
 
 ## Preprocessing  Data
 
-At first look on the data, it is obvious that a significant amount of columns are blank or not available. To simplify our model, we remove any column possessing either of these two traits. Afterwards, we should notice that the first eight columns are measurements not pertaining 
-to the sensor. We manually remove them before running PCA on the remaining data 
-columns.
+At first look on the data, it is obvious that a significant amount of columns are not availabl. To simplify our model, we remove any column possessing either of these two traits. Afterwards, we should notice that the first eight columns are measurements not pertaining to the sensor.
+We manually remove them before running PCA on the remaining data columns.
 
-In order to get an idea of how well our algorithm will perform on the testing 
-data, we create a split to make a "cross-validated" data partition. This is an 
-80/20 split in order to give sufficient data to developing the models while 
-giving a good estimate to testing performance. Later on, we'll let caret train 
-using a 4-fold cross-validation setup.
+In order to get an idea of how well our algorithm will perform on the testing data, we create 
+a split to make a "cross-validated" data partition. This is an 80/20 split in order to give sufficient data to developing the models while giving a good estimate to testing performance. Later on, we'll let caret train using a 4-fold cross-validation setup.
 
-In order to capture most of the variance of the data and to remove repeated 
-operations, we pre-process the data with PCA outside of caret's train function. 
-We also center and scale the data in order to treat each column equally. The 
-threshold for the PCA was left at the defaul 0.95 in order to capture most of 
-the variance. Finally, we use the predict function to apply our PCA to the data.
+In order to capture most of the variance of the data and to remove repeated operations,
+we pre-process the data with PCA outside of caret's train function. We also center and scale the data in order to treat each column equally. The threshold for the PCA was left at the defaul 0.95 in order to capture most of the variance. Finally, we use the predict function to apply our PCA to the data.
 
 The preprocessing is performed to both the training and testing data like so:
 
@@ -80,24 +73,11 @@ cv_classe = raw_train_data[-in_train, length(raw_train_data)]
 
 ## Data Modeling
 
-Once all of the data has been preprocessed, we can begin to model the data to 
-the class. In the Netflix contest, the top performers used an ensemble of 
-models in their predictions. To model this data, I decided to adopt the same 
-idea and use multiple models to determine whether or not someone is performing 
-the exercise correctly. 
+Once all of the data has been preprocessed, we can begin to model the data to the class. In the Netflix contest, the top performers used an ensemble of models in their predictions. To model this data, I decided to adopt the same idea and use multiple models to determine whether or not someone is performing the exercise correctly. 
 
-I decided to use the following four models: recursive partitioning and 
-regression trees (**rpart**), random forests (**rf**), linear discriminant 
-analysis (**lda**), and radial support vector machines (**svmRadial**). All of 
-them were picked arbitrarily. Other models such as the generalized boosted 
-regression models (**gbm**) were not selected on the basis of time and 
-processing constraints. 
+I decided to use the following four models: recursive partitioning and regression trees (**rpart**), random forests (**rf**), linear discriminant analysis (**lda**), and radial support vector machines (**svmRadial**). All of them were picked arbitrarily. Other models such as the generalized boosted regression models (**gbm**) were not selected on the basis of time and processing constraints. 
 
-To ensure that we do not overfit on the training data, we perform 
-cross-validation while training our models. Since we already separated 20% of 
-our training data to get a performance estimate, I decided to perform a 4-fold 
-cross-validation so that the training data and cross-validated partition within 
-the train function is 60% and 20%, respectively, for each of the repeats. 
+To ensure that we do not overfit on the training data, we perform cross-validation while training our models. Since we already separated 20% of our training data to get a performance estimate, I decided to perform a 4-fold cross-validation so that the training data and cross-validated partition within the train function is 60% and 20%, respectively, for each of the repeats. 
 
 The model training is performed like so:
 
@@ -116,12 +96,7 @@ svm_model = train(pca_train_data, train_classe,
                   method = "svmRadial", trControl = fit_control)
 ```
 
-After training the models, we could take a look at the in-sample error for each 
-of the individual models. However, we can instead just combine all of them to 
-form an ensemble. To do this, we predict on the training set for each of the 
-models and create a new data frame containing the predictions and the classe. 
-We then fit a random forest over the predictions to the classe, thus forming an 
-ensemble prediction as performed here:
+After training the models, we could take a look at the in-sample error for each of the individual models. However, we can instead just combine all of them to form an ensemble. To do this, we predict on the training set for each of the models and create a new data frame containing the predictions and the classe. We then fit a random forest over the predictions to the classe, thus forming an ensemble prediction as performed here:
 
 ```{r ensemble_model, cache = TRUE}
 # Predict with each of the trained models
@@ -138,8 +113,7 @@ ensemble_model = train(classe ~ ., method = "rf", data = train_df)
 print(ensemble_model)
 ```
 
-We can get the in-sample error for our ensemble by subtracting with our highest 
-accuracy attained with our model. The in-sample error is:
+We can get the in-sample error for our ensemble by subtracting with our highest accuracy attained with our model. The in-sample error is:
 
 ```{r}
 error = 1 - max(ensemble_model$results$Accuracy)
@@ -149,9 +123,7 @@ print(error)
 
 ## Prediction with Trained Models
 
-To get the out-of-sample error, we use the ensemble model on the
-cross-validation data partition that was not included in the training. We run 
-the data through each of the individual models before using the ensemble model.
+To get the out-of-sample error, we use the ensemble model on the cross-validation data partition that was not included in the training. We run the data through each of the individual models before using the ensemble model.
 
 ```{r}
 # Generate predictions on the data
@@ -167,8 +139,7 @@ cv_df = data.frame(rpart_pred = rpart_cv_pred, rf_pred = rf_cv_pred,
 cv_pred = predict(ensemble_model, cv_df)
 ```
 
-By using a confusion matrix, we can get the accuracy of ensemble model on the 
-cross-validation data partition. The expected out-of-sample error is:
+By using a confusion matrix, we can get the accuracy of ensemble model on the cross-validation data partition. The expected out-of-sample error is:
 
 ```{r}
 cv_confusion_matrix = confusionMatrix(cv_pred, cv_classe)
@@ -179,9 +150,7 @@ print(error)
 
 ## Predicting on the Test Set
 
-Similar to the cross-validation data partition, we can predict on the test data. 
-Since the test data does not have the classe, this section is just to output the 
-results submitted to Coursera.
+Similar to the cross-validation data partition, we can predict on the test data. Since the test data does not have the class, this section is just outputting the results submitted to Coursera.
 
 ```{r}
 # Generate predictions on the data
